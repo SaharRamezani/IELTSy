@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "IELTSy Writer",
+  "version": "0.2.0",
+  "description": "Highlights A1–B2 words in text fields and suggests C1–C2 replacements to upgrade your writing.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ieltsy-writer@example.com",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["words.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "IELTSy Writer"
+  }
+}
