@@ -1,72 +1,105 @@
-.ielsy-overlay-root {
-  pointer-events: none;
-}
-
-.ielsy-badge {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 9px;
+.ielsy-load-banner {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 2147483647;
+  padding: 8px 14px;
   background: #6b3fa0;
   color: #fff;
-  font: 600 11px/18px system-ui, sans-serif;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  pointer-events: auto;
+  font: 600 12px system-ui, -apple-system, Segoe UI, sans-serif;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: ielsy-fade 2.5s ease-in-out forwards;
 }
-.ielsy-badge:hover { background: #8254c1; }
+@keyframes ielsy-fade {
+  0% { opacity: 0; transform: translateY(-6px); }
+  10% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.ielsy-mirror,
+.ielsy-mirror * {
+  box-sizing: border-box;
+}
+.ielsy-mirror-inner {
+  width: 100%;
+  height: auto;
+}
+
+.ielsy-hl {
+  color: transparent;
+  text-decoration: underline wavy #6b3fa0;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  -webkit-text-decoration: underline wavy #6b3fa0;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.ielsy-hl:hover {
+  background: rgba(107, 63, 160, 0.12);
+}
+
+.ielsy-underline {
+  height: 3px;
+  background: transparent;
+  border-bottom: 2px solid #6b3fa0;
+  cursor: pointer;
+  border-radius: 1px;
+}
+.ielsy-underline:hover {
+  background: rgba(107, 63, 160, 0.18);
+}
 
 .ielsy-panel {
-  width: 340px;
-  max-height: 440px;
-  overflow-y: auto;
+  width: 260px;
   background: #ffffff;
   color: #222;
   border: 1px solid #d0d7de;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   font: 13px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
+  padding: 10px 12px;
 }
 
 .ielsy-panel-header {
-  padding: 10px 12px 4px;
-  font-weight: 600;
-  background: #f6f8fa;
-  border-radius: 8px 8px 0 0;
-}
-.ielsy-sub {
-  padding: 0 12px 10px;
-  color: #656d76;
-  font-size: 11px;
-  background: #f6f8fa;
-  border-bottom: 1px solid #eaeef2;
-}
-
-.ielsy-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0f2f5;
-}
-.ielsy-item:last-child { border-bottom: none; }
-
-.ielsy-orig {
+  font-weight: 700;
+  font-size: 15px;
   color: #6b3fa0;
-  font-weight: 600;
-  font-size: 14px;
   margin-bottom: 2px;
 }
-.ielsy-msg { color: #656d76; font-size: 11px; margin-bottom: 6px; }
-.ielsy-reps { display: flex; flex-wrap: wrap; gap: 6px; }
+.ielsy-sub {
+  color: #656d76;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.ielsy-reps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
 .ielsy-rep {
   background: #f3eefc;
   border: 1px solid #b392f0;
   color: #6b3fa0;
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 4px 10px;
+  border-radius: 14px;
   cursor: pointer;
   font: 12px system-ui, sans-serif;
 }
 .ielsy-rep:hover { background: #e5d6fa; }
+
+.ielsy-close {
+  display: block;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #656d76;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.ielsy-close:hover { color: #24292f; }

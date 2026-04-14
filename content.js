@@ -120,7 +120,7 @@
     if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") {
       renderMirror(el, text, matches);
     } else if (el.isContentEditable) {
-      renderContentEditableUnderlines(el, text, matches);
+      renderContentEditableUnderlines(el, matches);
     }
   }
 
@@ -162,11 +162,9 @@
     if (el.tagName === "INPUT") {
       mirror.style.whiteSpace = "pre";
       mirror.style.overflowWrap = "normal";
-      mirror.style.wordWrap = "normal";
     } else {
       mirror.style.whiteSpace = "pre-wrap";
       mirror.style.overflowWrap = "break-word";
-      mirror.style.wordWrap = "break-word";
     }
 
     const inner = document.createElement("div");
@@ -220,7 +218,7 @@
 
   // ---------- contenteditable: Range-based underline divs ----------
 
-  function renderContentEditableUnderlines(el, text, matches) {
+  function renderContentEditableUnderlines(el, matches) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let total = 0;
