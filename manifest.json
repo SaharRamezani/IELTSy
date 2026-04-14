@@ -12,19 +12,19 @@
   "permissions": ["storage"],
   "host_permissions": ["https://api.languagetool.org/*"],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["src/background/background.js"]
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["words.js", "content.js"],
-      "css": ["content.css"],
+      "js": ["src/content/dictionary.js", "src/content/content.js"],
+      "css": ["src/content/content.css"],
       "run_at": "document_idle",
       "all_frames": true
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_title": "IELTSy Writer"
   }
 }

@@ -1,32 +1,59 @@
 # IELTSy Writer — Firefox Extension
 
-A Firefox extension that scans any text field (`<textarea>`, text `<input>`, or `contenteditable`) for simple A1–B2 words and suggests C1–C2 replacements. Built for IELTS writing practice — turns "help" into `assist / aid / facilitate`, "big" into `substantial / considerable / enormous`, etc.
+A Firefox extension that helps with IELTS writing by doing two things in any text field:
 
-Runs entirely locally from a built-in dictionary — no network, no API, no data leaves your browser.
+1. **Checks your grammar** — underlines mistakes in red, with a fix on click (powered by [LanguageTool](https://languagetool.org/)).
+2. **Upgrades simple A1–B2 words** — underlines them in purple and suggests C1–C2 alternatives (runs locally from a built-in dictionary).
 
-## Load it in Firefox (temporary install)
+## Screenshots
+
+**Grammar fix** — "this" flagged for not starting with an uppercase letter:
+
+![Grammar fix](pics/Screenshot%20from%202026-04-15%2001-00-08.png)
+
+**Vocabulary upgrade** — "know" suggested as `comprehend / recognise / grasp`:
+
+![Vocab upgrade](pics/Screenshot%20from%202026-04-15%2001-00-20.png)
+
+**Spelling fix** — "goo" corrected to "good":
+
+![Spelling fix](pics/Screenshot%20from%202026-04-15%2001-00-32.png)
+
+**Missing verb** — "This a new test." suggests inserting "is":
+
+![Missing verb](pics/Screenshot%20from%202026-04-15%2001-05-17.png)
+
+## Install (temporary)
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…**
 3. Pick [manifest.json](manifest.json)
-4. Type in any text field. After ~400ms a purple badge appears in the bottom-right corner of the field showing how many A1–B2 words were found. Click it to see each word and its C1–C2 alternatives. Click a suggestion to replace all occurrences of that word in the field.
+4. Start typing in any text field. After ~800ms, mistakes get red wavy underlines and simple words get purple ones. Click an underline to see the suggestion — click a suggestion to apply it.
 
-Toggle on/off from the toolbar popup.
+The toolbar icon has an on/off toggle.
 
-## Files
+## Project structure
 
-- [manifest.json](manifest.json) — MV3 manifest
-- [words.js](words.js) — the A1–B2 → C1–C2 dictionary and scanner
-- [content.js](content.js) — detects fields, debounces input, renders badge + panel
-- [content.css](content.css) — badge and panel styles
-- [popup.html](popup.html) / [popup.js](popup.js) — toolbar popup (enable toggle)
+```
+IELTSy/
+├── manifest.json            MV3 manifest
+├── README.md
+├── pics/                    screenshots used in this README
+└── src/
+    ├── background/
+    │   └── background.js    proxies grammar checks to LanguageTool
+    ├── content/
+    │   ├── content.js       detects fields, draws underlines, panel logic
+    │   ├── content.css      underline and panel styles
+    │   └── dictionary.js    A1–B2 → C1–C2 word list (~280 entries)
+    └── popup/
+        ├── popup.html
+        ├── popup.css
+        └── popup.js         toolbar popup (enable toggle)
+```
 
-## Extending the dictionary
+## Notes
 
-Edit `DICT` in [words.js](words.js). Each entry is `"simple": ["advanced1", "advanced2", "advanced3"]`. The scanner is case-insensitive and preserves the original case (`Help` → `Assist`, `HELP` → `ASSIST`).
-
-## Caveats
-
-- **Context matters.** Words like `like`, `kind`, `hard`, `short` have multiple meanings; the panel warns you to check before replacing. The scanner doesn't do POS tagging.
-- **Whole-word matches only** — `help` matches but `helpful` and `helping` do not. Adding inflected forms means expanding the dictionary or adding a lightweight stemmer.
-- **No inflection-aware replacement.** Replacing `running` with `sprinting` isn't supported; only base-form entries in the dictionary.
+- **Privacy:** vocabulary checks run locally. Grammar checks send your text to LanguageTool's public API — don't use on sensitive content.
+- **Rate limit:** LanguageTool's free endpoint allows ~20 requests/min. Heavy writing may hit it; self-host LanguageTool and change `LT_ENDPOINT` in [src/background/background.js](src/background/background.js) if needed.
+- **Adding words:** edit `DICT` in [src/content/dictionary.js](src/content/dictionary.js). Entries are `"simple": ["advanced1", "advanced2", "advanced3"]`.
