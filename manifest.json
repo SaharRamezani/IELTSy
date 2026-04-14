@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "IELTSy Writer",
-  "version": "0.2.0",
-  "description": "Highlights A1–B2 words in text fields and suggests C1–C2 replacements to upgrade your writing.",
+  "version": "0.3.0",
+  "description": "Grammar checking and A1–B2 → C1–C2 vocabulary upgrades for IELTS writing.",
   "browser_specific_settings": {
     "gecko": {
       "id": "ieltsy-writer@example.com",
@@ -10,6 +10,10 @@
     }
   },
   "permissions": ["storage"],
+  "host_permissions": ["https://api.languagetool.org/*"],
+  "background": {
+    "scripts": ["background.js"]
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

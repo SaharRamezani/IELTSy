@@ -7,8 +7,9 @@
   }
   console.info("[IELTSy] dictionary ready, entries:", IELTSY_WORDS.size);
 
-  const DEBOUNCE_MS = 400;
+  const DEBOUNCE_MS = 800;
   const MIN_LENGTH = 3;
+  const GRAMMAR_LANG = "en-US";
   const state = {
     enabled: true,
     timers: new WeakMap(),
@@ -87,16 +88,42 @@
     state.timers.set(el, id);
   }
 
-  function runCheck(el) {
+  async function runCheck(el) {
     try {
       const text = getText(el);
       if (!text || text.length < MIN_LENGTH) {
         removeOverlay(el);
         return;
       }
-      const matches = IELTSY_WORDS.scan(text);
-      console.debug("[IELTSy] scanned", text.length, "chars,", matches.length, "matches");
-      renderMatches(el, text, matches);
+      if (state.lastText.get(el) === text) return;
+      state.lastText.set(el, text);
+
+      const vocabMatches = IELTSY_WORDS.scan(text).map((m) => ({ ...m, kind: "vocab" }));
+
+      let grammarMatches = [];
+      if (api && api.runtime && api.runtime.sendMessage) {
+        try {
+          const resp = await api.runtime.sendMessage({
+            type: "CHECK_GRAMMAR",
+            text,
+            language: GRAMMAR_LANG
+          });
+          if (resp && Array.isArray(resp.matches)) grammarMatches = resp.matches;
+          else if (resp && resp.error) console.warn("[IELTSy] grammar error:", resp.error);
+        } catch (e) {
+          console.warn("[IELTSy] grammar check failed:", e);
+        }
+      }
+
+      if (state.lastText.get(el) !== text) return;
+
+      const allMatches = [...grammarMatches, ...vocabMatches];
+      console.debug(
+        "[IELTSy] scanned", text.length, "chars,",
+        vocabMatches.length, "vocab,",
+        grammarMatches.length, "grammar"
+      );
+      renderMatches(el, text, allMatches);
     } catch (e) {
       console.error("[IELTSy] runCheck error:", e);
     }
@@ -185,7 +212,8 @@
     let idx = 0;
     for (const m of dedup) {
       html += escapeHtml(text.slice(idx, m.offset));
-      html += `<span class="ielsy-hl" data-offset="${m.offset}" data-length="${m.length}">${escapeHtml(m.original)}</span>`;
+      const kindClass = m.kind === "grammar" ? "ielsy-hl-grammar" : "ielsy-hl-vocab";
+      html += `<span class="ielsy-hl ${kindClass}" data-offset="${m.offset}" data-length="${m.length}">${escapeHtml(m.original)}</span>`;
       idx = m.offset + m.length;
     }
     html += escapeHtml(text.slice(idx));
@@ -255,7 +283,7 @@
       for (const rect of rects) {
         if (rect.width === 0 || rect.height === 0) continue;
         const u = document.createElement("div");
-        u.className = "ielsy-underline";
+        u.className = "ielsy-underline " + (m.kind === "grammar" ? "ielsy-underline-grammar" : "ielsy-underline-vocab");
         u.style.position = "fixed";
         u.style.left = rect.left + "px";
         u.style.top = (rect.bottom - 2) + "px";
@@ -309,13 +337,23 @@
 
     const header = document.createElement("div");
     header.className = "ielsy-panel-header";
+    if (match.kind === "grammar") header.classList.add("ielsy-header-grammar");
     header.textContent = match.original;
     panel.appendChild(header);
 
     const sub = document.createElement("div");
     sub.className = "ielsy-sub";
-    sub.textContent = "Upgrade to a C1–C2 alternative:";
+    sub.textContent = match.kind === "grammar"
+      ? (match.message || "Grammar suggestion")
+      : "Upgrade to a C1–C2 alternative:";
     panel.appendChild(sub);
+
+    if (match.kind === "grammar" && (!match.replacements || !match.replacements.length)) {
+      const none = document.createElement("div");
+      none.className = "ielsy-none";
+      none.textContent = "No automatic fix — edit manually.";
+      panel.appendChild(none);
+    }
 
     const row = document.createElement("div");
     row.className = "ielsy-reps";
