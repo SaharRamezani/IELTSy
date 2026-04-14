@@ -7,14 +7,27 @@
   }
   console.info("[IELTSy] dictionary ready, entries:", IELTSY_WORDS.size);
 
-  const DEBOUNCE_MS = 800;
+  // Clear any stale overlays left over from a previous content-script instance
+  // (e.g., after reloading the temporary add-on without reloading the page).
+  try {
+    document
+      .querySelectorAll(".ielsy-mirror, .ielsy-ce-overlay, .ielsy-panel, .ielsy-load-banner")
+      .forEach((n) => n.remove());
+  } catch (e) {}
+
+  const VOCAB_DEBOUNCE_MS = 120;
+  const GRAMMAR_DEBOUNCE_MS = 900;
   const MIN_LENGTH = 3;
   const GRAMMAR_LANG = "en-US";
   const state = {
     enabled: true,
-    timers: new WeakMap(),
+    vocabTimers: new WeakMap(),
+    grammarTimers: new WeakMap(),
     overlays: new WeakMap(),
-    lastText: new WeakMap()
+    vocabCache: new WeakMap(),   // { text, matches }
+    grammarCache: new WeakMap(), // { text, matches }
+    inflightGrammar: new WeakMap(),
+    lastFingerprint: new WeakMap()
   };
 
   if (api && api.storage && api.storage.local) {
@@ -81,60 +94,121 @@
     }[c]));
   }
 
-  function scheduleCheck(el) {
-    if (!state.enabled) return;
-    clearTimeout(state.timers.get(el));
-    const id = setTimeout(() => runCheck(el), DEBOUNCE_MS);
-    state.timers.set(el, id);
+  function disableNativeSpellcheck(el) {
+    try {
+      if (el.spellcheck !== false) el.spellcheck = false;
+      if (el.getAttribute && el.getAttribute("spellcheck") !== "false") {
+        el.setAttribute("spellcheck", "false");
+      }
+    } catch (e) {}
   }
 
-  async function runCheck(el) {
+  function scheduleCheck(el) {
+    if (!state.enabled) return;
+    disableNativeSpellcheck(el);
+    clearTimeout(state.vocabTimers.get(el));
+    clearTimeout(state.grammarTimers.get(el));
+    const vId = setTimeout(() => runVocabCheck(el), VOCAB_DEBOUNCE_MS);
+    state.vocabTimers.set(el, vId);
+    const gId = setTimeout(() => runGrammarCheck(el), GRAMMAR_DEBOUNCE_MS);
+    state.grammarTimers.set(el, gId);
+  }
+
+  function runVocabCheck(el) {
     try {
       const text = getText(el);
       if (!text || text.length < MIN_LENGTH) {
+        state.vocabCache.delete(el);
+        state.grammarCache.delete(el);
         removeOverlay(el);
+        state.lastFingerprint.delete(el);
         return;
       }
-      if (state.lastText.get(el) === text) return;
-      state.lastText.set(el, text);
-
-      const vocabMatches = IELTSY_WORDS.scan(text).map((m) => ({ ...m, kind: "vocab" }));
-
-      let grammarMatches = [];
-      if (api && api.runtime && api.runtime.sendMessage) {
-        try {
-          const resp = await api.runtime.sendMessage({
-            type: "CHECK_GRAMMAR",
-            text,
-            language: GRAMMAR_LANG
-          });
-          if (resp && Array.isArray(resp.matches)) grammarMatches = resp.matches;
-          else if (resp && resp.error) console.warn("[IELTSy] grammar error:", resp.error);
-        } catch (e) {
-          console.warn("[IELTSy] grammar check failed:", e);
-        }
+      const cached = state.vocabCache.get(el);
+      if (!cached || cached.text !== text) {
+        const matches = IELTSY_WORDS.scan(text).map((m) => ({ ...m, kind: "vocab" }));
+        state.vocabCache.set(el, { text, matches });
       }
-
-      if (state.lastText.get(el) !== text) return;
-
-      const allMatches = [...grammarMatches, ...vocabMatches];
-      console.debug(
-        "[IELTSy] scanned", text.length, "chars,",
-        vocabMatches.length, "vocab,",
-        grammarMatches.length, "grammar"
-      );
-      renderMatches(el, text, allMatches);
+      renderCombined(el, text);
     } catch (e) {
-      console.error("[IELTSy] runCheck error:", e);
+      console.error("[IELTSy] runVocabCheck error:", e);
     }
+  }
+
+  async function runGrammarCheck(el) {
+    try {
+      const text = getText(el);
+      if (!text || text.length < MIN_LENGTH) return;
+      const cached = state.grammarCache.get(el);
+      if (cached && cached.text === text) {
+        renderCombined(el, text);
+        return;
+      }
+      if (!api || !api.runtime || !api.runtime.sendMessage) return;
+      if (state.inflightGrammar.get(el) === text) return;
+      state.inflightGrammar.set(el, text);
+      let grammarMatches = [];
+      try {
+        const resp = await api.runtime.sendMessage({
+          type: "CHECK_GRAMMAR",
+          text,
+          language: GRAMMAR_LANG
+        });
+        if (resp && Array.isArray(resp.matches)) grammarMatches = resp.matches;
+        else if (resp && resp.error) console.warn("[IELTSy] grammar error:", resp.error);
+      } catch (e) {
+        console.warn("[IELTSy] grammar check failed:", e);
+      }
+      if (state.inflightGrammar.get(el) === text) state.inflightGrammar.delete(el);
+      state.grammarCache.set(el, { text, matches: grammarMatches });
+      if (getText(el) !== text) return;
+      renderCombined(el, text);
+    } catch (e) {
+      console.error("[IELTSy] runGrammarCheck error:", e);
+    }
+  }
+
+  function renderCombined(el, text) {
+    const v = state.vocabCache.get(el);
+    const g = state.grammarCache.get(el);
+    const vocabMatches = v && v.text === text ? v.matches : [];
+    const grammarMatches = g && g.text === text ? g.matches : [];
+    const allMatches = [...grammarMatches, ...vocabMatches];
+    const fp = fingerprint(text, allMatches);
+    if (state.lastFingerprint.get(el) === fp) return;
+    state.lastFingerprint.set(el, fp);
+    renderMatches(el, text, allMatches);
+  }
+
+  function fingerprint(text, matches) {
+    const parts = matches
+      .map((m) => `${m.kind}:${m.offset}:${m.length}`)
+      .sort()
+      .join("|");
+    return `${text.length}#${parts}`;
   }
 
   function removeOverlay(el) {
     const ov = state.overlays.get(el);
-    if (!ov) return;
-    if (ov.onScroll) el.removeEventListener("scroll", ov.onScroll);
-    if (ov.root && ov.root.parentNode) ov.root.parentNode.removeChild(ov.root);
-    state.overlays.delete(el);
+    if (ov) {
+      if (ov.onScroll) {
+        try { el.removeEventListener("scroll", ov.onScroll); } catch (e) {}
+      }
+      if (ov.root && ov.root.parentNode) ov.root.parentNode.removeChild(ov.root);
+      state.overlays.delete(el);
+    }
+    state.lastFingerprint.delete(el);
+    // Defensive: also remove any stray overlays in the DOM that target this
+    // element but are no longer referenced by state.overlays, and sweep any
+    // whose target element has been detached from the DOM.
+    document.querySelectorAll(".ielsy-mirror, .ielsy-ce-overlay").forEach((n) => {
+      const target = n._ielsyTarget;
+      if (target === el) {
+        n.remove();
+      } else if (target && !target.isConnected) {
+        n.remove();
+      }
+    });
   }
 
   function clearAllOverlays() {
@@ -171,6 +245,7 @@
 
     const mirror = document.createElement("div");
     mirror.className = "ielsy-mirror";
+    mirror._ielsyTarget = el;
     for (const p of MIRROR_PROPS) {
       try { mirror.style[p] = cs[p]; } catch (e) {}
     }
@@ -259,6 +334,7 @@
 
     const overlay = document.createElement("div");
     overlay.className = "ielsy-ce-overlay";
+    overlay._ielsyTarget = el;
     overlay.style.position = "fixed";
     overlay.style.left = "0";
     overlay.style.top = "0";
